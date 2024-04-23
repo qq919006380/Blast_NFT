@@ -3,7 +3,7 @@
  *  npx hardhat run script/bridges.js
  */
 
-const { ethers } = require("ethers");
+const { ethers,JsonRpcProvider } = require("ethers");
 const { vars } = require("hardhat/config");
 const PRIVATE_KEY = vars.get("KEY");
 
@@ -11,10 +11,10 @@ const PRIVATE_KEY = vars.get("KEY");
 const BlastBridgeAddress = "0xc644cc19d2A9388b71dd1dEde07cFFC73237Dca8";
 
 // Providers for Sepolia and Blast networks
-const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+const sepoliaProvider = new JsonRpcProvider(
   `https://rpc-sepolia.rockx.com`
 );
-const blastProvider = new ethers.providers.JsonRpcProvider(
+const blastProvider = new JsonRpcProvider(
   "https://sepolia.blast.io"
 );
 
@@ -26,7 +26,7 @@ const blastWallet = wallet.connect(blastProvider);
 // Transaction to send 0.1 Sepolia ETH
 const tx = {
   to: BlastBridgeAddress,
-  value: ethers.utils.parseEther("3"),
+  value: ethers.parseEther("3"),
 };
 
 async function run() {
@@ -35,6 +35,6 @@ async function run() {
 
   // Confirm the bridged balance on Blast
   const balance = await blastProvider.getBalance(wallet.address);
-  console.log(`Balance on Blast: ${ethers.utils.formatEther(balance)} ETH`);
+  console.log(`Balance on Blast: ${ethers.formatEther(balance)} ETH`);
 }
 run();

@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./Blast.sol";
 
-contract ERC721NFT is ERC721, Ownable, AccessControl {
+contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     using EnumerableSet for EnumerableSet.AddressSet;
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     EnumerableSet.AddressSet private _whitelist;
-    uint256 private _tokenIds;
     IBlast public blastContract;
     string private _baseTokenURI;
     mapping(address => bool) public hasMintedInWhitelist; // 追踪是否已经在白名单阶段铸造
-    uint256 public constant MINT_PRICE = 0.00002 ether; //mint 价格
+    mapping(uint256 => bool) private _tokenIdUsed;
+    uint256 private _tokenIds; // 已铸造的token数量
+
+
+    uint256 public constant MINT_PRICE = 0.00002 ether; //mint 价格   pro:0.05
+    uint256 public maxSupply = 3; // 最大供应量                       pro:2000
+    
 
     enum SalePhase {
         Whitelist,
@@ -41,8 +47,25 @@ contract ERC721NFT is ERC721, Ownable, AccessControl {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC721, AccessControl) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(ERC721Enumerable, AccessControl)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
+    }
+
+    function tokensOfOwner(
+        address owner
+    ) public view returns (uint256[] memory) {
+        uint256 tokenCount = balanceOf(owner);
+        uint256[] memory tokens = new uint256[](tokenCount);
+        for (uint256 i = 0; i < tokenCount; i++) {
+            tokens[i] = tokenOfOwnerByIndex(owner, i);
+        }
+        return tokens;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -107,14 +130,35 @@ contract ERC721NFT is ERC721, Ownable, AccessControl {
 
     // 批量空投
     function batchAirdrop(address[] calldata addresses) external onlyOwner {
+        require(_tokenIds < maxSupply, "Exceeds maximum supply"); // 检查是否超过最大供应量
+
         for (uint256 i = 0; i < addresses.length; i++) {
+            uint256 randId = _generateRandomId();
             _tokenIds += 1;
-            _mint(addresses[i], _tokenIds);
+            _mint(addresses[i], randId);
         }
+    }
+
+    function _generateRandomId() private returns (uint256) {
+        uint256 random = uint256(
+            keccak256(
+                abi.encodePacked(block.prevrandao, block.timestamp, _tokenIds)
+            )
+        ) % maxSupply; // 使用 % maxSupply 确保随机数在 0 到 maxSupply-1 之间
+
+        // 确保新生成的随机 ID 还没有被使用
+        while (_tokenIdUsed[random]) {
+            random =
+                uint256(keccak256(abi.encodePacked(random, block.timestamp))) %
+                maxSupply;
+        }
+        _tokenIdUsed[random] = true; // 标记此 ID 为已使用
+        return random;
     }
 
     // 修改mint函数以适应分阶段铸造
     function mint() public payable {
+        require(_tokenIds < maxSupply, "Exceeds maximum supply"); // 检查是否超过最大供应量
         require(msg.value == MINT_PRICE, "Incorrect value sent");
         if (salePhase == SalePhase.Whitelist) {
             require(isWhitelisted(msg.sender), "Not in whitelist");
@@ -124,8 +168,14 @@ contract ERC721NFT is ERC721, Ownable, AccessControl {
             );
             hasMintedInWhitelist[msg.sender] = true;
         }
+
+        uint256 randId = _generateRandomId();
         _tokenIds += 1;
-        _mint(msg.sender, _tokenIds);
+        _mint(msg.sender, randId);
+    }
+
+    function remainingSupply() public view returns (uint256) {
+        return maxSupply - _tokenIds;
     }
 
     // 允许合约所有者提取合约中的ETH
@@ -140,5 +190,4 @@ contract ERC721NFT is ERC721, Ownable, AccessControl {
         // 认领所有累积的Gas费用到指定的接收者
         blastContract.claimAllGas(address(this), recipient);
     }
-
 }
