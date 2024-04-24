@@ -41,6 +41,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         setupRole(OPERATOR_ROLE, msg.sender); // 同时给部署者运营角色
     }
 
+    // 设置管理员
     function setupRole(bytes32 role, address account) public onlyOwner {
         _grantRole(role, account);
     }
@@ -57,6 +58,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         return super.supportsInterface(interfaceId);
     }
 
+    // 查询持地址持有的token id
     function tokensOfOwner(
         address owner
     ) public view returns (uint256[] memory) {
@@ -72,6 +74,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         return _baseTokenURI;
     }
 
+    // 设置nft 链接
     function setBaseURI(string memory baseURI) public {
         require(
             hasRole(OPERATOR_ROLE, msg.sender) || owner() == msg.sender,
@@ -139,6 +142,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         }
     }
 
+    // 生成随机数
     function _generateRandomId() private returns (uint256) {
         uint256 random = uint256(
             keccak256(
@@ -176,6 +180,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         _mint(msg.sender, randId);
     }
 
+    // 查询剩余可mint的数量
     function remainingSupply() public view returns (uint256) {
         return maxSupply - _tokenIds;
     }
