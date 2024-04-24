@@ -1,3 +1,9 @@
+# Blast_NFT合约
+- 支持白名单，公售阶段
+- 支持批量空投
+- 支持领取Blast开发者gas
+
+
 # Sample Hardhat Project
 
 This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.

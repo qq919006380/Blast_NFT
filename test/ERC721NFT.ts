@@ -7,6 +7,7 @@ let lock: any;
 let owner: { provider: any; address: string };
 let addr1: { provider: any; address: string };
 let addr2: { provider: any; address: string };
+let addr3: { provider: any; address: string };
 
 let MINT_PRICE: string;
 
@@ -24,11 +25,11 @@ before(async function () {
   MINT_PRICE = ethers.formatEther(price);
   console.log("Mint 价格:", MINT_PRICE);
   // 测试账号
-  [owner, addr1, addr2] = await ethers.getSigners();
+  [owner, addr1, addr2, addr3] = await ethers.getSigners();
 });
 
 after(async function () {
-  console.log(`执行完成 ✅ 合约 地址：${lock.target}`);
+  console.log(`✅ active finish  addres ：${lock.target}`);
   // const balance = await ethers.provider.getBalance(lock.target);
   // console.log(`Contract balance: ${ethers.formatEther(balance)} ETH`);
   // if (balance > 0) {
@@ -62,7 +63,7 @@ describe("Mint functionality in Whitelist phase", async function () {
     await lock.addToWhitelist([owner.address]);
 
     // 设置销售阶段到白名单
-    await lock.setSalePhase(0); // 假设0代表白名单阶段
+    await lock.setSalePhase(1); // 1代表白名单阶段
 
     await expect(
       lock.connect(owner).mint({ value: ethers.parseEther(MINT_PRICE) })
@@ -92,7 +93,7 @@ describe("Mint functionality in Whitelist phase", async function () {
 
   it("Whitelist phase: should fail if the address is not in whitelist", async function () {
     // 切换到一个不在白名单中的用户
-    await lock.setSalePhase(0); // 确保仍在白名单阶段
+    await lock.setSalePhase(1); // 确保仍在白名单阶段
     await expect(
       lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
     ).to.be.revertedWith("Not in whitelist");
@@ -102,7 +103,7 @@ describe("Mint functionality in Whitelist phase", async function () {
 describe("Mint functionality in Public phase", async function () {
   it("Public phase: should allow anyone to mint with correct price", async function () {
     // 设置销售阶段到公售
-    await lock.setSalePhase(1); // 假设1代表公售阶段
+    await lock.setSalePhase(2); // 确保代表公售阶段
 
     await expect(
       lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
@@ -121,10 +122,19 @@ describe("Mint functionality in Public phase", async function () {
   });
 
   it("Public phase: should fail if the mint price is incorrect", async function () {
-    await lock.setSalePhase(1); // 确保在公售阶段
+    await lock.setSalePhase(2); // 确保在公售阶段
     await expect(
       lock.connect(addr1).mint({ value: ethers.parseEther("0.0012") })
     ).to.be.revertedWith("Incorrect value sent");
+  });
+});
+
+describe("Mint functionality in Stop phase", async function () {
+  it("Stop phase:  Minting not yet available", async function () {
+    await lock.setSalePhase(0); // 确保在停止阶段
+    await expect(
+      lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
+    ).to.be.revertedWith("Not available");
   });
 });
 
@@ -147,8 +157,14 @@ describe("batchAirdrop functionality", function () {
   });
 });
 
-describe("Base URI Management", function () {
+describe.only("Base URI Management", function () {
   it("setBaseURI ", async function () {
+    await lock.setSalePhase(2); //公售
+
+    await expect(
+      lock.connect(owner).mint({ value: ethers.parseEther(MINT_PRICE) })
+    ).to.emit(lock, "Transfer");
+
     let tokensOfOwner = await lock.tokensOfOwner(owner.address);
     const newTokenId = tokensOfOwner[tokensOfOwner.length - 1];
 
@@ -218,7 +234,7 @@ describe("Withdraw", function () {
   });
 });
 
-describe.only("👍 check mint ids", async function () {
+describe("check mint ids", async function () {
   this.timeout(0); // 禁用整个测试套件的超时
   function sleep(time: number) {
     return new Promise((res) => {
@@ -228,7 +244,7 @@ describe.only("👍 check mint ids", async function () {
     });
   }
   it("mint remainingSupply", async function () {
-    await lock.setSalePhase(1); // 假设1代表公售阶段
+    await lock.setSalePhase(2); // 确保代表公售阶段
 
     let remainingSupply = await lock.remainingSupply();
     console.log(`剩余${remainingSupply}没有mint完`);
@@ -242,7 +258,7 @@ describe.only("👍 check mint ids", async function () {
 
         // 等待交易被矿工确认
         const txReceipt = await txResponse.wait();
-
+        await sleep(800);
         if (txReceipt.status == 1) {
           num++;
         } else {
@@ -254,7 +270,7 @@ describe.only("👍 check mint ids", async function () {
           `mint 第${num}个mint,id:${tokensOfOwner[tokensOfOwner.length - 1]}`
         );
       } catch (e) {
-        console.log("失败");
+        console.log("失败", e);
       }
     }
 

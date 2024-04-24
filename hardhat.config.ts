@@ -3,6 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 const { vars } = require("hardhat/config");
 const PRIVATE_KEY = vars.get("KEY"); //main
 const PRIVATE_KEY1 = vars.get("KEY1"); //t1
+const PRIVATE_KEY2 = vars.get("KEY2"); //t2
 const Blast_sepolia_test_key = vars.get("Blast_sepolia_test_key");
 const config: HardhatUserConfig = {
   solidity: "0.8.24",
@@ -18,6 +19,7 @@ const config: HardhatUserConfig = {
         Blast_sepolia_test_key as string,
         PRIVATE_KEY as string,
         PRIVATE_KEY1 as string,
+        PRIVATE_KEY2 as string,
       ],
       gasPrice: 1000000000,
     },

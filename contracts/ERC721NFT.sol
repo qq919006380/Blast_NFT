@@ -18,19 +18,19 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     mapping(uint256 => bool) private _tokenIdUsed;
     uint256 private _tokenIds; // 已铸造的token数量
 
-
     uint256 public constant MINT_PRICE = 0.00002 ether; //mint 价格   pro:0.05
-    uint256 public maxSupply = 3; // 最大供应量                       pro:2000
-    
+    uint256 public maxSupply = 2000; // 最大供应量                       pro:2000
 
+    // 销售阶段枚举
     enum SalePhase {
+        Stopped,
         Whitelist,
         Public
-    } // 销售阶段枚举
+    }
     SalePhase public salePhase; // 当前销售阶段状态变量
 
     constructor() ERC721("ChatyN ZHOU", "ZHOU") Ownable(msg.sender) {
-        salePhase = SalePhase.Whitelist; // 默认开始于白名单阶段
+        salePhase = SalePhase.Stopped; // 默认开始于暂停阶段
 
         // 初始化Blast合约的地址
         blastContract = IBlast(0x4300000000000000000000000000000000000002);
@@ -160,6 +160,8 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     function mint() public payable {
         require(_tokenIds < maxSupply, "Exceeds maximum supply"); // 检查是否超过最大供应量
         require(msg.value == MINT_PRICE, "Incorrect value sent");
+        require(salePhase != SalePhase.Stopped, "Not available");
+
         if (salePhase == SalePhase.Whitelist) {
             require(isWhitelisted(msg.sender), "Not in whitelist");
             require(
