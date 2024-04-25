@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -9,6 +10,7 @@ import "./Blast.sol";
 
 contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Strings for uint256;  // 引入Strings库的功能
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     EnumerableSet.AddressSet private _whitelist;
@@ -73,7 +75,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
     }
-
+    
     // 设置nft 链接
     function setBaseURI(string memory baseURI) public {
         require(
@@ -82,6 +84,16 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         );
         _baseTokenURI = baseURI;
     }
+
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        _requireOwned(tokenId);
+        string memory baseURI = _baseURI();
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
+    }
+
+ 
+
+      
 
     // 设置销售阶段
     function setSalePhase(SalePhase phase) external {

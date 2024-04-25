@@ -2,6 +2,7 @@ import { expect } from "chai";
 import hre from "hardhat";
 import artifacts from "../ignition/deployments/chain-168587773/artifacts/ERC721NFTModule#v_2.json";
 import deployed_addresses from "../ignition/deployments/chain-168587773/deployed_addresses.json";
+import address from '../address.json';
 let lock: any;
 
 let owner: { provider: any; address: string };
@@ -48,6 +49,9 @@ describe("Base Test", function () {
 
 describe("Whitelist management", function () {
   it("Should add and remove an address from the whitelist", async function () {
+    console.log(address)
+    await lock.addToWhitelist(address);
+
     await lock.addToWhitelist([addr1.address]);
     expect(await lock.isWhitelisted(addr1.address)).to.equal(true);
 
@@ -170,7 +174,7 @@ describe.only("Base URI Management", function () {
 
     await lock.setBaseURI("baidu.com/");
     let tokenURI = await lock.tokenURI(newTokenId);
-    expect(tokenURI).to.equal(`baidu.com/${newTokenId}`);
+    expect(tokenURI).to.equal(`baidu.com/${newTokenId}.json`);
   });
 
   it("non-owner setBaseURI", async function name() {
