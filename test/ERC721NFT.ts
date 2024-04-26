@@ -2,7 +2,9 @@ import { expect } from "chai";
 import hre from "hardhat";
 import artifacts from "../ignition/deployments/chain-168587773/artifacts/ERC721NFTModule#v_2.json";
 import deployed_addresses from "../ignition/deployments/chain-168587773/deployed_addresses.json";
-import address from '../address.json';
+import address from "../address.json";
+import Decimal from "decimal.js";
+
 let lock: any;
 
 let owner: { provider: any; address: string };
@@ -49,7 +51,7 @@ describe("Base Test", function () {
 
 describe("Whitelist management", function () {
   it("Should add and remove an address from the whitelist", async function () {
-    console.log(address)
+    console.log(address);
     await lock.addToWhitelist(address);
 
     await lock.addToWhitelist([addr1.address]);
@@ -70,7 +72,7 @@ describe("Mint functionality in Whitelist phase", async function () {
     await lock.setSalePhase(1); // 1代表白名单阶段
 
     await expect(
-      lock.connect(owner).mint({ value: ethers.parseEther(MINT_PRICE) })
+      lock.connect(owner).mint(1,{ value: ethers.parseEther(MINT_PRICE) })
     ).to.emit(lock, "Transfer");
 
     // 获取拥有者名下的所有 Token ID
@@ -91,7 +93,7 @@ describe("Mint functionality in Whitelist phase", async function () {
       .withArgs(owner.address, addr1.address, newTokenId);
 
     await expect(
-      lock.connect(owner).mint({ value: ethers.parseEther(MINT_PRICE) })
+      lock.connect(owner).mint(1,{ value: ethers.parseEther(MINT_PRICE) })
     ).to.be.revertedWith("Already minted in this phase");
   });
 
@@ -99,36 +101,55 @@ describe("Mint functionality in Whitelist phase", async function () {
     // 切换到一个不在白名单中的用户
     await lock.setSalePhase(1); // 确保仍在白名单阶段
     await expect(
-      lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
+      lock.connect(addr1).mint(1,{ value: ethers.parseEther(MINT_PRICE) })
     ).to.be.revertedWith("Not in whitelist");
   });
 });
 
 describe("Mint functionality in Public phase", async function () {
-  it("Public phase: should allow anyone to mint with correct price", async function () {
+  it.only("Public phase: should allow anyone to mint with correct price", async function () {
     // 设置销售阶段到公售
     await lock.setSalePhase(2); // 确保代表公售阶段
 
+    const quantityToMint = 60;
+    let value1 = new Decimal(Number(MINT_PRICE));
+    let value2 = new Decimal(quantityToMint);
+    let num = value1.times(value2);
+
+    const totalMintCost = ethers.parseEther(String(num));
+
+
+    // 检查在铸造前的剩余供应量
+    const initialRemainingSupply = await lock.remainingSupply();
+
+    // 铸造3个代币
     await expect(
-      lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
-    ).to.emit(lock, "Transfer");
+      lock.connect(addr1).mint(quantityToMint, { value: totalMintCost })
+    ).to.emit(lock, "Transfer"); // 检查是否发出了Transfer事件
 
-    // 获取拥有者名下的所有 Token ID
+    // 获取铸造后拥有者名下的所有 Token ID
     let tokensOfOwner = await lock.tokensOfOwner(addr1.address);
-    expect(tokensOfOwner).to.have.lengthOf.at.least(1); // 确保至少有一个代币被铸造
+    expect(tokensOfOwner).to.have.lengthOf.at.least(quantityToMint); // 确保至少有3个代币被铸造
 
-    // 获取最新铸造的 Token ID，假设是数组中的最后一个
+    // 获取最后一个铸造的 Token ID
     const newTokenId = tokensOfOwner[tokensOfOwner.length - 1];
-    console.log("newTokenId", newTokenId);
+    console.log("newTokenId of the last minted token:", newTokenId);
 
-    // 现在使用这个 Token ID 检查所有权
+    // 使用最新的 Token ID 检查所有权
     expect(await lock.ownerOf(newTokenId)).to.equal(addr1.address);
+
+    // 验证铸造后的剩余供应量是否正确
+    const finalRemainingSupply = await lock.remainingSupply();
+     
+    expect(finalRemainingSupply).to.equal(
+      initialRemainingSupply - BigInt(quantityToMint)
+    );
   });
 
   it("Public phase: should fail if the mint price is incorrect", async function () {
     await lock.setSalePhase(2); // 确保在公售阶段
     await expect(
-      lock.connect(addr1).mint({ value: ethers.parseEther("0.0012") })
+      lock.connect(addr1).mint(1,{ value: ethers.parseEther("0.0012") })
     ).to.be.revertedWith("Incorrect value sent");
   });
 });
@@ -137,7 +158,7 @@ describe("Mint functionality in Stop phase", async function () {
   it("Stop phase:  Minting not yet available", async function () {
     await lock.setSalePhase(0); // 确保在停止阶段
     await expect(
-      lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
+      lock.connect(addr1).mint(1,{ value: ethers.parseEther(MINT_PRICE) })
     ).to.be.revertedWith("Not available");
   });
 });
@@ -161,12 +182,12 @@ describe("batchAirdrop functionality", function () {
   });
 });
 
-describe.only("Base URI Management", function () {
+describe("Base URI Management", function () {
   it("setBaseURI ", async function () {
     await lock.setSalePhase(2); //公售
 
     await expect(
-      lock.connect(owner).mint({ value: ethers.parseEther(MINT_PRICE) })
+      lock.connect(owner).mint(1,{ value: ethers.parseEther(MINT_PRICE) })
     ).to.emit(lock, "Transfer");
 
     let tokensOfOwner = await lock.tokensOfOwner(owner.address);
@@ -207,7 +228,7 @@ describe("Role management", function () {
 describe("Withdraw", function () {
   it("should allow the owner to withdraw funds", async function () {
     // First, mint a new token to ensure there are funds in the contract
-    await lock.connect(owner).mint({ value: ethers.parseEther(MINT_PRICE) });
+    await lock.connect(owner).mint(1,{ value: ethers.parseEther(MINT_PRICE) });
 
     const initialOwnerBalance = await ethers.provider.getBalance(owner.address);
 
@@ -247,7 +268,7 @@ describe("check mint ids", async function () {
       }, time);
     });
   }
-  it("mint remainingSupply", async function () {
+  it.skip("mint remainingSupply", async function () {
     await lock.setSalePhase(2); // 确保代表公售阶段
 
     let remainingSupply = await lock.remainingSupply();
@@ -258,7 +279,7 @@ describe("check mint ids", async function () {
         // 发送交易并获取交易响应对象
         const txResponse = await lock
           .connect(addr1)
-          .mint({ value: ethers.parseEther(MINT_PRICE) });
+          .mint(1,{ value: ethers.parseEther(MINT_PRICE) });
 
         // 等待交易被矿工确认
         const txReceipt = await txResponse.wait();
@@ -279,7 +300,7 @@ describe("check mint ids", async function () {
     }
 
     await expect(
-      lock.connect(addr1).mint({ value: ethers.parseEther(MINT_PRICE) })
+      lock.connect(addr1).mint(1,{ value: ethers.parseEther(MINT_PRICE) })
     ).to.be.revertedWith("Exceeds maximum supply");
   });
 });

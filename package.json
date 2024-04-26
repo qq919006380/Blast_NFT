@@ -17,9 +17,11 @@
     "@openzeppelin/contracts": "5.0.2",
     "@types/inquirer": "^9.0.7",
     "chai": "4.x",
+    "decimal.js": "^10.4.3",
     "ethers": "6.x",
     "inquirer": "^8.2.6",
     "inquirer-autocomplete-standalone": "^0.8.1",
+    "mathjs": "^12.4.2",
     "modules": "link:@nomicfoundation/hardhat-ignition/modules"
   }
 }

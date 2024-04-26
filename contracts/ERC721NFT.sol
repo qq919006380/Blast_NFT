@@ -10,7 +10,7 @@ import "./Blast.sol";
 
 contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     using EnumerableSet for EnumerableSet.AddressSet;
-    using Strings for uint256;  // 引入Strings库的功能
+    using Strings for uint256; // 引入Strings库的功能
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     EnumerableSet.AddressSet private _whitelist;
@@ -20,7 +20,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     mapping(uint256 => bool) private _tokenIdUsed;
     uint256 private _tokenIds; // 已铸造的token数量
 
-    uint256 public constant MINT_PRICE = 0.00002 ether; //mint 价格   pro:0.05
+    uint256 public constant MINT_PRICE = 0.00002 ether; //mint 价格     pro:0.05
     uint256 public maxSupply = 2000; // 最大供应量                       pro:2000
 
     // 销售阶段枚举
@@ -75,7 +75,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
     }
-    
+
     // 设置nft 链接
     function setBaseURI(string memory baseURI) public {
         require(
@@ -85,15 +85,16 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         _baseTokenURI = baseURI;
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override returns (string memory) {
         _requireOwned(tokenId);
         string memory baseURI = _baseURI();
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
+        return
+            bytes(baseURI).length > 0
+                ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json"))
+                : "";
     }
-
- 
-
-      
 
     // 设置销售阶段
     function setSalePhase(SalePhase phase) external {
@@ -173,10 +174,11 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     }
 
     // 修改mint函数以适应分阶段铸造
-    function mint() public payable {
-        require(_tokenIds < maxSupply, "Exceeds maximum supply"); // 检查是否超过最大供应量
-        require(msg.value == MINT_PRICE, "Incorrect value sent");
+    function mint(uint256 quantity) public payable {
         require(salePhase != SalePhase.Stopped, "Not available");
+        require(quantity > 0, "Quantity must be at least one");
+        require(_tokenIds + quantity <= maxSupply, "Exceeds maximum supply");
+        require(msg.value == quantity * MINT_PRICE, "Incorrect value sent");
 
         if (salePhase == SalePhase.Whitelist) {
             require(isWhitelisted(msg.sender), "Not in whitelist");
@@ -187,9 +189,11 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
             hasMintedInWhitelist[msg.sender] = true;
         }
 
-        uint256 randId = _generateRandomId();
-        _tokenIds += 1;
-        _mint(msg.sender, randId);
+        for (uint256 i = 0; i < quantity; i++) {
+            uint256 randId = _generateRandomId();
+            _tokenIds += 1;
+            _mint(msg.sender, randId);
+        }
     }
 
     // 查询剩余可mint的数量
