@@ -19,6 +19,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
     mapping(address => bool) public hasMintedInWhitelist; // 追踪是否已经在白名单阶段铸造
     mapping(uint256 => bool) private _tokenIdUsed;
     uint256 private _tokenIds; // 已铸造的token数量
+    address private _payee;
 
     uint256 public constant MINT_PRICE = 0.00002 ether; //mint 价格     pro:0.05
     uint256 public maxSupply = 2000; // 最大供应量                       pro:2000
@@ -41,6 +42,7 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
 
         setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // 给部署者管理员角色
         setupRole(OPERATOR_ROLE, msg.sender); // 同时给部署者运营角色
+        setPayee(msg.sender);
     }
 
     // 设置管理员
@@ -149,29 +151,11 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         require(_tokenIds < maxSupply, "Exceeds maximum supply"); // 检查是否超过最大供应量
 
         for (uint256 i = 0; i < addresses.length; i++) {
-            uint256 randId = _generateRandomId();
             _tokenIds += 1;
-            _mint(addresses[i], randId);
+            _mint(addresses[i], _tokenIds);
         }
     }
-
-    // 生成随机数
-    function _generateRandomId() private returns (uint256) {
-        uint256 random = uint256(
-            keccak256(
-                abi.encodePacked(block.prevrandao, block.timestamp, _tokenIds)
-            )
-        ) % maxSupply; // 使用 % maxSupply 确保随机数在 0 到 maxSupply-1 之间
-
-        // 确保新生成的随机 ID 还没有被使用
-        while (_tokenIdUsed[random]) {
-            random =
-                uint256(keccak256(abi.encodePacked(random, block.timestamp))) %
-                maxSupply;
-        }
-        _tokenIdUsed[random] = true; // 标记此 ID 为已使用
-        return random;
-    }
+ 
 
     // 修改mint函数以适应分阶段铸造
     function mint(uint256 quantity) public payable {
@@ -190,10 +174,23 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         }
 
         for (uint256 i = 0; i < quantity; i++) {
-            uint256 randId = _generateRandomId();
             _tokenIds += 1;
-            _mint(msg.sender, randId);
+            _mint(msg.sender, _tokenIds);
         }
+
+        (bool success,) = payable(_payee).call{value: msg.value}("");
+        require(success, "Payment failed");
+    }
+
+    // 获取当前的_payee地址
+    function getPayee() public view returns (address) {
+        return _payee;
+    }
+
+    // 设置支付收款人
+    function setPayee(address newPayee) public onlyOwner {
+        require(newPayee != address(0), "Payee cannot be the zero address");
+        _payee = newPayee;
     }
 
     // 查询剩余可mint的数量
@@ -201,11 +198,11 @@ contract ERC721NFT is ERC721Enumerable, Ownable, AccessControl {
         return maxSupply - _tokenIds;
     }
 
-    // 允许合约所有者提取合约中的ETH
+    // 允许合约所有者提取合约中的ETH到Payee
     function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No funds available");
-        payable(owner()).transfer(balance);
+        payable(_payee).transfer(balance);
     }
 
     // 管理员认领Gas费用
